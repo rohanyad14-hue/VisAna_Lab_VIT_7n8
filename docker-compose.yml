@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # 1. Database Tier (MySQL with 5,840 preloaded rows)
+  mysql:
+    build:
+      context: ./database
+      dockerfile: Dockerfile
+    image: rohanyadav26/va-mysql:v1.0.0
+    container_name: va-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: salesdb
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - va-network
+
+  # 2. Application Tier (Flask REST API)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: rohanyadav26/va-backend:v1.0.0
+    container_name: va-backend
+    restart: unless-stopped
+    environment:
+      DB_URL: mysql+pymysql://root:password@mysql:3306/salesdb
+      PORT: 5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - va-network
+
+  # 3. Presentation Tier (Nginx Reverse Proxy + ECharts Dashboard)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: rohanyadav26/va-frontend:v1.0.0
+    container_name: va-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - va-network
+
+  # 4. Local Container Registry (Assessment 8 Requirement: Registry Push)
+  registry:
+    image: registry:2
+    container_name: va-registry
+    restart: unless-stopped
+    ports:
+      - "5001:5000"
+    volumes:
+      - registry_data:/var/lib/registry
+    networks:
+      - va-network
+
+volumes:
+  mysql_data:
+  registry_data:
+
+networks:
+  va-network:
+    driver: bridge

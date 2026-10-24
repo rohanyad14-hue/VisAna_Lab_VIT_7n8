@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VeloceAnalytics — Containerized Full-Stack Visual Analytics</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Apache ECharts Library -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Header Navigation -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>VeloceAnalytics <span class="tag">K8s & Docker Workload</span></h1>
+          <p>Integrated Flask REST API + Apache ECharts Frontend + MySQL Backend</p>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <div class="deployment-badge" id="envBadge">
+          <span class="badge-icon">☸</span>
+          <span id="envBadgeText">Container Cluster</span>
+        </div>
+        <div class="status-indicator">
+          <span class="status-dot" id="apiStatusDot"></span>
+          <span id="apiStatusText">Connecting to API...</span>
+        </div>
+        <div class="user-pill">
+          <span class="user-avatar">RY</span>
+          <span class="user-name">Rohan Yadav (26MML0020)</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Interactive Filter & Slicer Control Bar -->
+    <section class="controls-bar">
+      <div class="control-group">
+        <label for="sourceSelect">SQL Data Source:</label>
+        <select id="sourceSelect">
+          <option value="sql" selected>SQL Cluster (MySQL / Service)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label>Regions:</label>
+        <div class="checkbox-pills" id="regionPills">
+          <label class="pill active"><input type="checkbox" value="North" checked> North</label>
+          <label class="pill active"><input type="checkbox" value="South" checked> South</label>
+          <label class="pill active"><input type="checkbox" value="East" checked> East</label>
+          <label class="pill active"><input type="checkbox" value="West" checked> West</label>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>Categories:</label>
+        <div class="checkbox-pills" id="categoryPills">
+          <label class="pill active"><input type="checkbox" value="Electronics" checked> Electronics</label>
+          <label class="pill active"><input type="checkbox" value="Clothing" checked> Clothing</label>
+          <label class="pill active"><input type="checkbox" value="Home" checked> Home</label>
+          <label class="pill active"><input type="checkbox" value="Sports" checked> Sports</label>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="startDate">Timeline Range:</label>
+        <div class="date-range">
+          <input type="date" id="startDate" value="2025-01-01">
+          <span>to</span>
+          <input type="date" id="endDate" value="2025-12-31">
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button id="applyFiltersBtn" class="btn-primary">Apply Filters</button>
+        <button id="resetFiltersBtn" class="btn-secondary">Reset</button>
+      </div>
+    </section>
+
+    <!-- Main Content Area -->
+    <main class="dashboard-main">
+      <!-- Drilldown Active Filter Indicator -->
+      <div id="drillIndicator" class="drill-banner" style="display: none;">
+        <span>🎯 Active Drill-Down Filter: <strong id="drillCategoryName">All</strong></span>
+        <button id="clearDrillBtn" class="btn-clear-drill">Clear Drill-Down ✕</button>
+      </div>
+
+      <!-- KPI Summary Cards Grid -->
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">TOTAL REVENUE</div>
+          <div class="kpi-value" id="kpiTotalSales">$0.00</div>
+          <div class="kpi-sub" id="kpiOrders">0 orders recorded</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">AVG DAILY SALES</div>
+          <div class="kpi-value" id="kpiAvgDaily">$0.00</div>
+          <div class="kpi-sub">Across filtered days</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">TOP REGION</div>
+          <div class="kpi-value" id="kpiTopRegion">—</div>
+          <div class="kpi-sub">Leading market contributor</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">TOP CATEGORY</div>
+          <div class="kpi-value" id="kpiTopCategory">—</div>
+          <div class="kpi-sub">Highest gross sales volume</div>
+        </div>
+      </section>
+
+      <!-- Charts Grid -->
+      <section class="charts-grid">
+        <!-- Chart 1: Monthly Trend Line -->
+        <div class="chart-card span-8">
+          <div class="card-head">
+            <div>
+              <h3>Monthly Regional Sales Trend</h3>
+              <p class="card-sub">Multi-series chronological sales analysis with zoom slider</p>
+            </div>
+            <span class="badge">ECharts Line + DataZoom</span>
+          </div>
+          <div id="monthlyChart" class="chart-container"></div>
+        </div>
+
+        <!-- Chart 2: Category Share Donut with Click Drilldown -->
+        <div class="chart-card span-4">
+          <div class="card-head">
+            <div>
+              <h3>Category Revenue Share</h3>
+              <p class="card-sub">Proportional revenue distribution</p>
+            </div>
+            <span class="badge badge-accent">Click Slice to Drill-Down</span>
+          </div>
+          <div id="shareChart" class="chart-container"></div>
+        </div>
+
+        <!-- Chart 3: Category Stacked Bar Chart -->
+        <div class="chart-card span-6">
+          <div class="card-head">
+            <div>
+              <h3>Sales by Category & Operating Region</h3>
+              <p class="card-sub">Comparative category revenue stacked by territory</p>
+            </div>
+            <span class="badge">Stacked Bar</span>
+          </div>
+          <div id="categoryChart" class="chart-container"></div>
+        </div>
+
+        <!-- Chart 4: Dual-Axis Combo Chart -->
+        <div class="chart-card span-6">
+          <div class="card-head">
+            <div>
+              <h3>Monthly Total vs. Cumulative Sales</h3>
+              <p class="card-sub">Monthly velocity paired with running cumulative growth</p>
+            </div>
+            <span class="badge">Dual-Axis Combo</span>
+          </div>
+          <div id="comboChart" class="chart-container"></div>
+        </div>
+      </section>
+
+      <!-- Cluster Architecture & Telemetry Section -->
+      <section class="telemetry-section">
+        <div class="telemetry-card">
+          <h4>Deployment Infrastructure Overview</h4>
+          <div class="telemetry-grid">
+            <div class="telemetry-item">
+              <span class="telemetry-label">Architecture:</span>
+              <span class="telemetry-val" id="telArch">3-Tier (Frontend + REST API + SQL Service)</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Container Engine:</span>
+              <span class="telemetry-val">Docker (OCI Image Format)</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Orchestrator:</span>
+              <span class="telemetry-val">Kubernetes Cluster (Deployments & Services)</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="telemetry-label">Backend SQL Connection:</span>
+              <span class="telemetry-val" id="telDb">mysql-service:3306 (5,840 records)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>Vellore Institute of Technology | Visual Analytics Lab (VL2026270106069) | Assessment 7 & 8 | Rohan Yadav (26MML0020)</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
